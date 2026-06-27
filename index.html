@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Scramble</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 0.1em;
+      color: #a78bfa;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6b6b8a;
+      margin-bottom: 24px;
+    }
+
+    /* Top bar */
+    .top-bar {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #6b6b8a;
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #e8e8f0;
+    }
+
+    #timer.warning { color: #f87171; }
+
+    /* Timer ring */
+    .timer-ring-wrap {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+
+    .timer-ring-wrap svg {
+      transform: rotate(-90deg);
+    }
+
+    .timer-ring-wrap .ring-bg { fill: none; stroke: #1e1e30; stroke-width: 6; }
+    .timer-ring-wrap .ring-fg { fill: none; stroke: #a78bfa; stroke-width: 6;
+      stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+    .timer-ring-wrap.warning .ring-fg { stroke: #f87171; }
+
+    .timer-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    /* Letters */
+    .letters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .letter-tile {
+      width: 52px;
+      height: 60px;
+      border-radius: 10px;
+      background: #1e1e30;
+      border: 2px solid #2e2e50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.1s, background 0.1s, border-color 0.1s;
+      color: #c4b5fd;
+    }
+
+    .letter-tile:hover { background: #29294a; border-color: #a78bfa; transform: translateY(-2px); }
+    .letter-tile.used { opacity: 0.25; cursor: default; transform: none; }
+
+    /* Input area */
+    .input-area {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    #word-input {
+      background: #1e1e30;
+      border: 2px solid #2e2e50;
+      border-radius: 10px;
+      color: #e8e8f0;
+      font-size: 1.3rem;
+      padding: 10px 16px;
+      outline: none;
+      width: 220px;
+      text-transform: lowercase;
+      letter-spacing: 0.15em;
+      transition: border-color 0.15s;
+    }
+
+    #word-input:focus { border-color: #a78bfa; }
+    #word-input.shake {
+      animation: shake 0.35s ease;
+      border-color: #f87171;
+    }
+    #word-input.accept {
+      border-color: #34d399;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      60%      { transform: translateX(6px); }
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.96); }
+
+    #submit-btn {
+      background: #7c3aed;
+      color: #fff;
+    }
+
+    #shuffle-btn {
+      background: #1e1e30;
+      color: #a78bfa;
+      border: 2px solid #2e2e50;
+      font-size: 1.2rem;
+      padding: 10px 14px;
+    }
+
+    #shuffle-btn:hover { border-color: #a78bfa; }
+
+    /* Message */
+    #message {
+      height: 22px;
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      color: #34d399;
+      font-weight: 600;
+    }
+
+    /* Found words */
+    .found-section {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .found-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #6b6b8a;
+      margin-bottom: 10px;
+    }
+
+    .found-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 48px;
+    }
+
+    .found-word {
+      background: #1e1e30;
+      border: 1px solid #2e2e50;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.9rem;
+      color: #c4b5fd;
+      animation: pop 0.2s ease;
+    }
+
+    @keyframes pop {
+      0%   { transform: scale(0.7); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* End screen */
+    #end-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+    }
+
+    #end-screen h2 { font-size: 1.8rem; color: #a78bfa; }
+    #end-screen p  { color: #6b6b8a; font-size: 0.9rem; }
+
+    .big-score {
+      font-size: 4rem;
+      font-weight: 800;
+      color: #e8e8f0;
+      line-height: 1;
+    }
+
+    .best-label {
+      font-size: 0.8rem;
+      color: #34d399;
+      margin-top: -8px;
+    }
+
+    #play-again-btn {
+      background: #7c3aed;
+      color: #fff;
+      padding: 12px 32px;
+      font-size: 1rem;
+      border-radius: 12px;
+      margin-top: 8px;
+    }
+
+    .missed-words {
+      font-size: 0.8rem;
+      color: #6b6b8a;
+      max-width: 400px;
+      line-height: 1.8;
+    }
+
+    .missed-words span {
+      display: inline-block;
+      background: #1e1e30;
+      border: 1px solid #2e2e30;
+      border-radius: 6px;
+      padding: 2px 9px;
+      margin: 2px;
+    }
+
+    #game-area { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; }
+  </style>
+</head>
+<body>
+  <h1>SCRAMBLE</h1>
+  <p class="subtitle">Make as many words as you can before time runs out</p>
+
+  <div id="game-area">
+    <div class="top-bar">
+      <div class="stat">
+        <div class="stat-label">Score</div>
+        <div class="stat-value" id="score">0</div>
+      </div>
+
+      <div class="timer-ring-wrap" id="timer-ring">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle class="ring-bg" cx="40" cy="40" r="33"/>
+          <circle class="ring-fg" id="ring-fg" cx="40" cy="40" r="33"
+            stroke-dasharray="207.3" stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-center" id="timer">60</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">Best</div>
+        <div class="stat-value" id="best">0</div>
+      </div>
+    </div>
+
+    <div class="letters" id="letters"></div>
+
+    <div class="input-area">
+      <button id="shuffle-btn" title="Shuffle letters">⇄</button>
+      <input id="word-input" type="text" maxlength="8" placeholder="type a word…" autocomplete="off" spellcheck="false" />
+      <button id="submit-btn">Enter</button>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="found-section">
+      <div class="found-header">
+        <span>Found words</span>
+        <span id="found-count">0 words</span>
+      </div>
+      <div class="found-grid" id="found-grid"></div>
+    </div>
+  </div>
+
+  <div id="end-screen">
+    <h2>Time's up!</h2>
+    <div class="big-score" id="final-score">0</div>
+    <div class="best-label" id="new-best-label"></div>
+    <p id="end-summary"></p>
+    <div class="missed-words" id="missed-words"></div>
+    <button id="play-again-btn">Play Again</button>
+  </div>
+
+  <script>
+  // ── Word list ──────────────────────────────────────────────────────────────
+  // 50 common 6-letter sets with their valid sub-words (3+ letters)
+  const PUZZLES = [
+    { letters: 'GARDEN', words: ['are','ear','end','era','nag','rag','ran','den','age','and','gar','dare','dear','earn','gear','grad','gran','gander','garden','grade','graned','range','darn','arden','ranged'] },
+    { letters: 'PLANET', words: ['ale','ape','apt','ate','eat','eta','lap','late','lean','leap','lent','let','nap','net','pal','pan','pant','pat','pate','peal','peat','pen','petal','plan','plane','plant','plate','plea','tale','tan','tap','tape','ten','lane','ante','laten','neap','panel'] },
+    { letters: 'STREAM', words: ['are','arm','art','ate','ear','eat','era','mast','mat','mate','meat','met','ram','rare','ream','rest','sat','sea','seam','set','star','stare','steam','stem','tram','smear','master','martes','tamers'] },
+    { letters: 'BRIDGE', words: ['bid','big','bird','bred','brew','bride','dig','dire','dirge','gibe','gird','grid','ire','red','rib','rid','ride','ridge','rig'] },
+    { letters: 'FROZEN', words: ['foe','fon','for','fore','fro','froe','frown','nor','one','ore','roe','zero','zone','zoner','fern','noel','rone'] },
+    { letters: 'MARKET', words: ['are','ark','arm','art','ate','ear','eat','era','make','mare','mark','mat','mate','meat','met','rake','ram','ream','tame','tamer','tar','tare','team','term','trek','mar','karma','taker','maker','remark'] },
+    { letters: 'CASTLE', words: ['ace','act','ale','ate','cat','cleat','caste','case','cast','eat','lace','last','late','least','let','sale','salt','sat','scale','scat','seat','set','slate','tale','talc','tales','tace','laces','eclat'] },
+    { letters: 'FLIGHT', words: ['fig','fit','gilt','girl','gist','glit','gilt','hilt','hit','ill','lift','light','lit','thill','filth','fight','fig','flit','gift'] },
+    { letters: 'WONDER', words: ['den','doe','done','dore','downe','drew','end','eon','nod','node','nor','now','ode','one','ore','owe','owed','own','roe','rod','rode','row','rowed','woe','won','word','wore','worn','owner','rowed','drown','drone','endow'] },
+    { letters: 'FOREST', words: ['foe','for','fore','fort','fret','fro','froe','oft','ore','rest','roe','rote','set','soft','sort','store','toe','tore','forte','fores','foster'] },
+    { letters: 'SIGNAL', words: ['ail','aim','align','gin','gal','gain','lag','lain','lang','nag','nail','nil','sign','sing','slag','slain','sling','snag','snail'] },
+    { letters: 'PIRATE', words: ['air','ape','apt','are','art','ate','eat','era','irate','pair','par','pare','part','pat','pate','per','pie','pier','pit','pita','prate','rap','rapt','rat','rate','reap','rip','ripe','tap','tape','tar','tare','tar','tier','tip','tire','trap','trip','tripe'] },
+    { letters: 'CLOUDS', words: ['cod','cold','colds','cols','could','clod','clods','cloud','club','clubs','cod','soul','loud','locus','docs','clous','scold','duos','lod'] },
+    { letters: 'BRANCH', words: ['bar','ban','bran','cab','can','car','char','crab','nab','narc','ran','ranch'] },
+    { letters: 'SIMPLE', words: ['elm','ems','isle','imp','imps','lie','lies','lime','limes','limp','limps','lip','lips','mile','miles','pile','piles','slim','slime','slip','smile','spiel','semi'] },
+    { letters: 'CANDLE', words: ['ace','acned','ale','and','cane','clean','clad','clan','dale','dance','dean','den','lace','laced','lad','lance','land','lane','lead','lean','lend','nacel','aced','eland'] },
+    { letters: 'GLANCE', words: ['ace','age','ale','alec','angle','can','cane','clan','clean','clang','gal','gale','gel','glen','lace','lance','lane','lean','leg','nag','noel'] },
+    { letters: 'FRIGHT', words: ['fig','fight','fit','gift','girt','girl','grit','hit','rift','right','rig','trig'] },
+    { letters: 'BOUNCE', words: ['bon','bone','bun','bonce','cone','cob','cue','cob','eon','nob','noe','once','one','ounce','obeun'] },
+    { letters: 'PURPLE', words: ['lure','per','pep','prep','pure','pule','repul','rule','ruse','upper'] },
+    { letters: 'FROZEN', words: ['foe','fon','for','fore','fro','frown','nor','one','ore','roe','zero','zone','zoner'] },
+    { letters: 'BREEZE', words: ['bee','beer','beers','bees','breze','ere','ebb'] },
+    { letters: 'GRAVEL', words: ['age','ale','are','ave','ear','era','gal','gale','gave','gear','gel','gel','lager','large','lave','layer','lave','lager','rage','rave','real','regal','vale','veal','velar'] },
+    { letters: 'MINGLE', words: ['elm','gel','gem','gin','glen','glime','lie','lime','lien','line','men','mile','mine','nil'] },
+    { letters: 'HUNTER', words: ['her','hen','hunt','hurt','hue','net','nut','rut','run','rune','rent','true','tune','turn','ten','then','tuner','thru'] },
+    { letters: 'PILLOW', words: ['lip','low','oil','owl','pill','poll','will','woo','wool'] },
+    { letters: 'TACKLE', words: ['ace','act','ale','cat','cleat','eat','kelp','lace','lake','late','lack','lacket','tale','tack','talc','take','talk','tale','eat','lace'] },
+    { letters: 'FROZEN', words: ['foe','for','fore','fro','frown','nor','one','ore','roe','zero','zone'] },
+    { letters: 'SPRING', words: ['gin','grin','grip','grins','gris','nip','pin','ping','pins','prig','prigs','rigs','ring','rings','rip','rips','sign','sing','sip','sir','snip','spin','siring'] },
+    { letters: 'TANGLE', words: ['age','ale','angle','ant','ante','eat','eta','gal','gale','gate','gel','gent','glen','lag','lane','late','lean','lent','let','nag','net','tag','tale','tan','tang','tangle'] },
+  ];
+
+  const GAME_TIME = 60;
+  const CIRCUMFERENCE = 2 * Math.PI * 33; // r=33
+
+  let puzzle, usedWords, score, timeLeft, timerInterval, gameActive;
+
+  const $ = id => document.getElementById(id);
+
+  function loadBest() { return parseInt(localStorage.getItem('scramble-best') || '0'); }
+  function saveBest(s) { localStorage.setItem('scramble-best', s); }
+
+  function startGame() {
+    puzzle = PUZZLES[Math.floor(Math.random() * PUZZLES.length)];
+    usedWords = new Set();
+    score = 0;
+    timeLeft = GAME_TIME;
+    gameActive = true;
+
+    $('score').textContent = '0';
+    $('best').textContent = loadBest();
+    $('found-grid').innerHTML = '';
+    $('found-count').textContent = '0 words';
+    $('message').textContent = '';
+    $('word-input').value = '';
+    $('word-input').className = '';
+
+    $('game-area').style.display = 'flex';
+    $('end-screen').style.display = 'none';
+
+    renderLetters(puzzle.letters);
+    updateTimer();
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(tick, 1000);
+
+    $('word-input').focus();
+  }
+
+  function renderLetters(str) {
+    const container = $('letters');
+    container.innerHTML = '';
+    [...str].forEach((ch, i) => {
+      const tile = document.createElement('div');
+      tile.className = 'letter-tile';
+      tile.textContent = ch;
+      tile.dataset.index = i;
+      tile.addEventListener('click', () => {
+        if (tile.classList.contains('used')) return;
+        const inp = $('word-input');
+        inp.value += ch.toLowerCase();
+        tile.classList.add('used');
+        inp.focus();
+      });
+      container.appendChild(tile);
+    });
+  }
+
+  function updateTimer() {
+    const pct = timeLeft / GAME_TIME;
+    const offset = CIRCUMFERENCE * (1 - pct);
+    $('ring-fg').style.strokeDashoffset = offset;
+    $('timer').textContent = timeLeft;
+
+    const warn = timeLeft <= 10;
+    $('timer').className = warn ? 'warning' : '';
+    $('timer-ring').className = 'timer-ring-wrap' + (warn ? ' warning' : '');
+  }
+
+  function tick() {
+    timeLeft--;
+    updateTimer();
+    if (timeLeft <= 0) endGame();
+  }
+
+  function canMakeWord(word, letters) {
+    const pool = [...letters.toLowerCase()];
+    for (const ch of word) {
+      const idx = pool.indexOf(ch);
+      if (idx === -1) return false;
+      pool.splice(idx, 1);
+    }
+    return true;
+  }
+
+  function submitWord() {
+    const inp = $('word-input');
+    const word = inp.value.trim().toLowerCase();
+    inp.value = '';
+    syncTileHighlights('');
+
+    if (!gameActive) return;
+
+    if (word.length < 3) {
+      flash(inp, 'shake', 'Too short (3+ letters)');
+      return;
+    }
+    if (!canMakeWord(word, puzzle.letters)) {
+      flash(inp, 'shake', 'Not in your letters!');
+      return;
+    }
+    if (usedWords.has(word)) {
+      flash(inp, 'shake', 'Already found!');
+      return;
+    }
+    const valid = puzzle.words.map(w => w.toLowerCase());
+    if (!valid.includes(word)) {
+      flash(inp, 'shake', 'Not a valid word');
+      return;
+    }
+
+    // Accept!
+    usedWords.add(word);
+    const pts = word.length <= 3 ? 1 : word.length <= 4 ? 2 : word.length <= 5 ? 4 : word.length * 2;
+    score += pts;
+    $('score').textContent = score;
+
+    flash(inp, 'accept', `+${pts} pts`);
+    addFoundWord(word);
+  }
+
+  function flash(el, cls, msg) {
+    el.classList.remove('shake', 'accept');
+    void el.offsetWidth; // reflow
+    el.classList.add(cls);
+    $('message').textContent = msg;
+    $('message').style.color = cls === 'accept' ? '#34d399' : '#f87171';
+    setTimeout(() => { el.classList.remove(cls); $('message').textContent = ''; }, 700);
+  }
+
+  function addFoundWord(word) {
+    const div = document.createElement('div');
+    div.className = 'found-word';
+    div.textContent = word;
+    $('found-grid').prepend(div);
+    $('found-count').textContent = `${usedWords.size} word${usedWords.size !== 1 ? 's' : ''}`;
+  }
+
+  function syncTileHighlights(currentInput) {
+    const tiles = document.querySelectorAll('.letter-tile');
+    const pool = [...puzzle.letters.toLowerCase()];
+    const used = [];
+    for (const ch of currentInput.toLowerCase()) {
+      const idx = pool.indexOf(ch);
+      if (idx !== -1) { used.push(idx); pool.splice(idx, 1); }
+    }
+    tiles.forEach((t, i) => {
+      t.classList.toggle('used', used.includes(i));
+    });
+  }
+
+  function shuffleLetters() {
+    const arr = [...puzzle.letters];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    puzzle.letters = arr.join('');
+    renderLetters(puzzle.letters);
+    $('word-input').value = '';
+  }
+
+  function endGame() {
+    clearInterval(timerInterval);
+    gameActive = false;
+
+    const best = loadBest();
+    const isNew = score > best;
+    if (isNew) saveBest(score);
+
+    $('game-area').style.display = 'none';
+    const end = $('end-screen');
+    end.style.display = 'flex';
+
+    $('final-score').textContent = score;
+    $('new-best-label').textContent = isNew ? '🎉 New best!' : `Best: ${Math.max(best, score)}`;
+    $('end-summary').textContent = `You found ${usedWords.size} of ${puzzle.words.length} words`;
+
+    const missed = puzzle.words.filter(w => !usedWords.has(w.toLowerCase()));
+    if (missed.length) {
+      $('missed-words').innerHTML = 'Missed: ' + missed.map(w => `<span>${w}</span>`).join('');
+    } else {
+      $('missed-words').textContent = 'You found them all!';
+    }
+  }
+
+  // ── Event listeners ────────────────────────────────────────────────────────
+  $('submit-btn').addEventListener('click', submitWord);
+  $('shuffle-btn').addEventListener('click', shuffleLetters);
+  $('play-again-btn').addEventListener('click', startGame);
+
+  $('word-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitWord();
+  });
+
+  $('word-input').addEventListener('input', e => {
+    syncTileHighlights(e.target.value);
+  });
+
+  // ── Start ──────────────────────────────────────────────────────────────────
+  startGame();
+  </script>
+</body>
+</html>
